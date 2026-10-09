@@ -56,7 +56,9 @@ export type PythonRuntimeOptions = {
   runTimeoutMs: number;
 };
 
-const SIM_FILES = ["__init__.py", "engine.py", "shim.py", "score.py", "runner.py", "arena.py"];
+const SIM_FILES = ["__init__.py", "engine.py", "shim.py", "score.py", "runner.py"];
+/** loaded when present; a stale public/py copy without them still boots */
+const OPTIONAL_SIM_FILES = ["arena.py"];
 
 export class TimeoutError extends Error {}
 export class CancelledError extends Error {}
@@ -113,7 +115,7 @@ export class PythonRuntime {
       };
       w.postMessage({
         type: "boot",
-        config: { indexURL: this.opts.indexURL, packageBaseUrl: this.opts.packageBaseUrl, simBase: this.opts.simBase, simFiles: SIM_FILES },
+        config: { indexURL: this.opts.indexURL, packageBaseUrl: this.opts.packageBaseUrl, simBase: this.opts.simBase, simFiles: SIM_FILES, optionalSimFiles: OPTIONAL_SIM_FILES },
       });
     });
     return this.bootPromise;

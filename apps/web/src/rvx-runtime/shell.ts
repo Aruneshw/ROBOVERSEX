@@ -558,7 +558,7 @@ export class RvxShell {
       if (finished) return;
       finished = true;
       this.flushBars();
-      rt.reportRun(command, status, error, result);
+      rt.reportRun(command, status, error, result, code);
       this.toPrompt();
     };
 

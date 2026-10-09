@@ -221,7 +221,7 @@ export class RvxRuntime {
       check_color: !!t.checkColor,
     };
   }
-  reportRun(command: string, status: RunOutcome["status"], error: string | null, r: WorkerRunResult | null) {
+  reportRun(command: string, status: RunOutcome["status"], error: string | null, r: WorkerRunResult | null, code = this.config.getCode()) {
     const s = this.sim.snapshot();
     const g = this.config.task.goal ?? null;
     const distance = g ? Math.hypot(s.pose.x - g.x, s.pose.y - g.y) : null;
@@ -233,7 +233,7 @@ export class RvxRuntime {
     };
     const task = this.state.task;
     const run = this.sim.programData();
-    const evaluation = task && run && status !== "stopped" ? evaluateTask(task, run, r, this.config.getCode()) : this.state.evaluation;
+    const evaluation = task && run && status !== "stopped" ? evaluateTask(task, run, r, code) : this.state.evaluation;
     this.patch({ lastRun: outcome, evaluation }, true);
   }
 

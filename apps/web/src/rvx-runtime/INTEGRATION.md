@@ -111,3 +111,21 @@ s.closestGuard                              // { distance, name } live (Task 2)
 - Task 2 unlocks when Task 1 has `evaluation.passed`. Task 4 uses `assignCard(user.id)`: the same user always gets the same card.
 - `/spawn` creates static guard turtles. They are drawn as red dots with a 1.0 safe radius and publish `/<name>/pose`.
 - Do not ship the reference solutions (`packages/rvx-sim/solutions/`) to the browser.
+
+## Task flow: Submit and the next task (`useTaskFlow`)
+
+```tsx
+const [code, setCode] = useState("");                                  // bound to Monaco (onChange → setCode)
+const flow = useTaskFlow({ participantId: user.teamCode, code, setCode,
+  onSubmit: async (task, evaluation) => { /* optional: POST to your API; throw to keep the task open */ } });
+
+flow.tasks          // [{ task, state: "locked" | "available" | "current" | "passed", score }] → sidebar cards
+flow.select(id)     // open a task (locked tasks are ignored)
+flow.current        // the task on screen (rvx.setTask is done for you; its draft or starter code goes into the editor)
+flow.checks         // AUTO EVALUATION items: { label, ok, detail } (labelled even before the first run)
+flow.canSubmit      // true only when the last run of THIS task passed every check AND the editor holds exactly that code
+flow.submitHint     // why it is disabled: "Run your code first" / "Complete all criteria…" / "Code changed since the last run…"
+flow.submit()       // records the pass and moves to the next task automatically
+flow.completed, flow.total, flow.allDone
+onChange={(v) => { setCode(v); flow.saveDraft(v); }}                    // every task keeps its own code
+```

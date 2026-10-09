@@ -61,7 +61,10 @@ const GLUE = String.raw`
 import sys, json, importlib.metadata as _md
 sys.path.insert(0, "/home/pyodide")
 import js
-import rvx_sim.arena  # /spawn, /kill, /<name>/pose (Level 2 tasks)
+try:
+    import rvx_sim.arena  # /spawn, /kill, /<name>/pose (Level 2 tasks)
+except ImportError:
+    pass
 from rvx_sim import engine as _eng, runner as _runner
 from rvx_sim.score import score_trace as _score
 
@@ -159,9 +162,14 @@ async function boot(config) {
   log(`python: CPython ${pyver} (Pyodide ${version}) ready`);
   lock = await (await rawFetch(`${config.indexURL}pyodide-lock.json`)).json().catch(() => ({ packages: {} }));
   py.FS.mkdirTree("/home/pyodide/rvx_sim");
-  for (const f of config.simFiles) {
+  for (const f of [...config.simFiles, ...(config.optionalSimFiles || [])]) {
     const r = await rawFetch(`${config.simBase}${f}`, { cache: "no-cache" });
-    if (!r.ok) throw new Error(`cannot fetch ${config.simBase}${f} (HTTP ${r.status}) — run scripts/copy-pyodide.mjs`);
+    if (!r.ok) {
+      const fix = "restart `npm run dev` (or run: node scripts/copy-pyodide.mjs) to copy packages/rvx-sim into public/py";
+      if (config.simFiles.includes(f)) throw new Error(`cannot fetch ${config.simBase}${f} (HTTP ${r.status}) — ${fix}`);
+      log(`\x1b[33mrvx_sim: ${f} not found (HTTP ${r.status}) — /spawn is disabled until you ${fix}\x1b[0m`);
+      continue;
+    }
     py.FS.writeFile(`/home/pyodide/rvx_sim/${f}`, await r.text());
   }
   self.rvx_emit = (s) => post({ type: "chunk", id: currentId, data: s });

@@ -38,7 +38,8 @@ export type ArenaTask = {
 };
 
 export type CheckResult = { id: string; label: string; ok: boolean; detail: string };
-export type TaskEvaluation = { taskId: string; passed: boolean; score: number | null; checks: CheckResult[]; at: number };
+/** `code` is the exact program that produced this evaluation (submit only if the editor still holds it). */
+export type TaskEvaluation = { taskId: string; passed: boolean; score: number | null; checks: CheckResult[]; at: number; code: string };
 
 export const TASKS = data as unknown as ArenaTask[];
 export const getTask = (id: string): ArenaTask => {
@@ -145,5 +146,14 @@ export function evaluateTask(task: ArenaTask, run: ProgramData, result: WorkerRu
         add(c, c, false, "unknown check");
     }
   }
-  return { taskId: task.id, passed: checks.every((x) => x.ok), score, checks, at: Date.now() };
+  return { taskId: task.id, passed: checks.every((x) => x.ok), score, checks, at: Date.now(), code };
+}
+
+/** The task's checks with proper labels, all "waiting" — for the AUTO EVALUATION bar before the first run. */
+export function pendingChecks(task: ArenaTask): CheckResult[] {
+  const empty: ProgramData = {
+    poses: [task.start.x, task.start.y, task.start.theta], segments: [], visibleSegments: [], clears: [], logs: [],
+    events: [], guardsSpawned: [], closestGuard: null, finalPose: { ...task.start }, ticks: 0,
+  };
+  return evaluateTask(task, empty, null, "").checks.map((c) => ({ ...c, ok: false, detail: "waiting for run" }));
 }
