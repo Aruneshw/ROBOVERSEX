@@ -146,7 +146,7 @@ export function evaluateTask(task: ArenaTask, run: ProgramData, result: WorkerRu
         add(c, c, false, "unknown check");
     }
   }
-  return { taskId: task.id, passed: checks.every((x) => x.ok), score, checks, at: Date.now(), code };
+  return { taskId: task.id, passed: checks.every((x) => x.ok), score, checks, at: typeof window === "undefined" ? 0 : Date.now(), code };
 }
 
 /** The task's checks with proper labels, all "waiting" — for the AUTO EVALUATION bar before the first run. */
