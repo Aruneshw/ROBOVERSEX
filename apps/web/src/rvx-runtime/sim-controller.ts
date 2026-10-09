@@ -8,13 +8,28 @@
 import { CENTER, DT, TurtleWorld, wrapAngle, type Segment } from "@/sim/engine";
 import { CANVAS_PX, InkLayer, PX_PER_M, drawTurtle, toPx } from "@/sim/renderer";
 import type { Target } from "@/sim/score";
-import type { RunChunk, WorkerRunResult } from "./python-runtime";
+import type { RunChunk, SimEvent, WorkerRunResult } from "./python-runtime";
 
 export type Pose2D = { x: number; y: number; theta: number };
 export type Goal = { x: number; y: number; tolerance?: number };
 export type LogLine = { tick: number; level: string; msg: string };
 export type SimMode = "live" | "program";
 export type Speed = number | "instant";
+
+export type Guard = { name: string; x: number; y: number; theta: number };
+/** Everything the evaluator needs from the last program run. */
+export type ProgramData = {
+  poses: number[];
+  segments: Segment[];
+  visibleSegments: Segment[];
+  clears: [number, number][];
+  logs: LogLine[];
+  events: SimEvent[];
+  guardsSpawned: Guard[];
+  closestGuard: { distance: number; name: string } | null;
+  finalPose: Pose2D;
+  ticks: number;
+};
 
 export type SimSnapshot = {
   mode: SimMode;
@@ -24,6 +39,10 @@ export type SimSnapshot = {
   angular: number;
   simTime: number;
   wallHits: number;
+  /** spawned guard turtles visible right now */
+  guards: Guard[];
+  /** closest approach of turtle1 to any guard so far in this run */
+  closestGuard: { distance: number; name: string } | null;
 };
 
 type Playback = {
@@ -31,6 +50,13 @@ type Playback = {
   segments: Segment[];
   clears: [number, number][];
   logs: LogLine[];
+  events: SimEvent[];
+  evIdx: number;
+  /** clearance bookkeeping, done as chunks arrive (independent of playback speed) */
+  pendingEv: SimEvent[];
+  alive: Map<string, Guard>;
+  spawned: Guard[];
+  closest: { distance: number; name: string } | null;
   logIdx: number;
   clearIdx: number;
   wallHits: number;
@@ -43,6 +69,7 @@ type Playback = {
 };
 
 const BG = "rgb(69,86,255)";
+const NO_GUARDS: Guard[] = [];
 
 export class SimController {
   start: Pose2D = { x: CENTER, y: CENTER, theta: 0 };
@@ -55,6 +82,9 @@ export class SimController {
   /** diff of the last program run against `target` (set diff = lastPreviewDiff to show it) */
   lastPreviewDiff: { missed: [number, number][]; extra: [number, number][] } | null = null;
   speed: Speed = 1;
+  /** radius drawn around spawned guards (Task 2: 1.0) */
+  guardRadius = 1.0;
+  private guards = new Map<string, Guard>();
 
   mode: SimMode = "live";
   world: TurtleWorld = new TurtleWorld([CENTER, CENTER, 0]);
@@ -68,7 +98,7 @@ export class SimController {
   private acc = 0;
   private liveTickCbs = new Set<(w: TurtleWorld) => void>();
   private frameCbs = new Set<(s: SimSnapshot) => void>();
-  private snap: SimSnapshot = { mode: "live", playing: false, pose: { ...this.start }, linear: 0, angular: 0, simTime: 0, wallHits: 0 };
+  private snap: SimSnapshot = { mode: "live", playing: false, pose: { ...this.start }, linear: 0, angular: 0, simTime: 0, wallHits: 0, guards: [], closestGuard: null };
   onWorldLog?: (l: LogLine) => void;
 
   // ------------------------------------------------------------ setup
@@ -104,6 +134,7 @@ export class SimController {
     this.world.onLog = (msg, level) => this.onWorldLog?.({ tick: this.world.tick, level, msg });
     this.lastClears = 0;
     this.diff = null;
+    this.guards.clear();
     this.ink?.wipe(0);
     this.update(this.world.x, this.world.y, this.world.theta, 0, 0, 0, 0);
   }
@@ -124,7 +155,8 @@ export class SimController {
     this.reset();
     this.mode = "program";
     this.pb = {
-      poses: [], segments: [], clears: [], logs: [], logIdx: 0, clearIdx: 0, wallHits: 0,
+      poses: [], segments: [], clears: [], logs: [], events: [], evIdx: 0, pendingEv: [], alive: new Map(), spawned: [], closest: null,
+      logIdx: 0, clearIdx: 0, wallHits: 0,
       playTick: 0, done: false, totalTicks: 0, onLog, onEnd, ended: false,
     };
     this.startLoop();
@@ -136,7 +168,37 @@ export class SimController {
     for (const s of c.segments) pb.segments.push(s);
     for (const cl of c.clears) pb.clears.push(cl);
     for (const l of c.logs) pb.logs.push(l);
+    for (const e of c.events ?? []) { pb.events.push(e); pb.pendingEv.push(e); if (e.type === "spawn") pb.spawned.push({ name: e.name, x: e.x, y: e.y, theta: e.theta }); }
     pb.wallHits = c.wall_hits;
+    // closest approach to any live guard, for every new tick (guards appear/disappear at their event tick)
+    const first = c.t0, n = c.poses.length / 3;
+    for (let i = 0; i < n; i++) {
+      const t = first + i;
+      while (pb.pendingEv.length && pb.pendingEv[0].tick <= t) {
+        const e = pb.pendingEv.shift()!;
+        if (e.type === "spawn") pb.alive.set(e.name, { name: e.name, x: e.x, y: e.y, theta: e.theta });
+        else if (e.type === "kill") pb.alive.delete(e.name);
+      }
+      if (!pb.alive.size) continue;
+      const x = c.poses[3 * i], y = c.poses[3 * i + 1];
+      for (const g of pb.alive.values()) {
+        const d = Math.hypot(x - g.x, y - g.y);
+        if (!pb.closest || d < pb.closest.distance) pb.closest = { distance: d, name: g.name };
+      }
+    }
+  }
+  /** Data of the current/last program run (null in live mode). */
+  programData(): ProgramData | null {
+    const pb = this.pb;
+    if (!pb) return null;
+    const n = pb.poses.length / 3;
+    const first = pb.clears.length ? pb.clears[pb.clears.length - 1][1] : 0;
+    return {
+      poses: pb.poses, segments: pb.segments, visibleSegments: pb.segments.slice(first), clears: pb.clears,
+      logs: pb.logs, events: pb.events, guardsSpawned: pb.spawned, closestGuard: pb.closest,
+      finalPose: n ? { x: pb.poses[3 * n - 3], y: pb.poses[3 * n - 2], theta: pb.poses[3 * n - 1] } : { ...this.start },
+      ticks: Math.max(0, n - 1),
+    };
   }
   endProgram(r: WorkerRunResult | null) {
     const pb = this.pb;
@@ -214,6 +276,11 @@ export class SimController {
     while (pb.clearIdx < pb.clears.length && pb.clears[pb.clearIdx][0] <= t) this.ink?.wipe(pb.clears[pb.clearIdx++][1]);
     this.ink?.sync(pb.segments, t);
     while (pb.logIdx < pb.logs.length && pb.logs[pb.logIdx].tick <= t) pb.onLog(pb.logs[pb.logIdx++]);
+    while (pb.evIdx < pb.events.length && pb.events[pb.evIdx].tick <= t) {
+      const e = pb.events[pb.evIdx++];
+      if (e.type === "spawn") this.guards.set(e.name, { name: e.name, x: e.x, y: e.y, theta: e.theta });
+      else if (e.type === "kill") this.guards.delete(e.name);
+    }
     const i = t * 3, j = Math.max(0, t - 1) * 3;
     const x = pb.poses[i], y = pb.poses[i + 1], th = pb.poses[i + 2];
     const px = pb.poses[j], py = pb.poses[j + 1], pth = pb.poses[j + 2];
@@ -231,7 +298,16 @@ export class SimController {
   }
 
   private update(x: number, y: number, theta: number, linear: number, angular: number, simTime: number, wallHits: number, playing = false) {
-    this.snap = { mode: this.mode, playing, pose: { x, y, theta }, linear, angular, simTime, wallHits };
+    const guards = this.guards.size ? [...this.guards.values()] : NO_GUARDS;
+    let closest = this.snap.closestGuard;
+    if (this.mode === "live" || !this.pb) closest = null;
+    else if (guards.length) {
+      for (const g of guards) {
+        const d = Math.hypot(x - g.x, y - g.y);
+        if (!closest || d < closest.distance) closest = { distance: d, name: g.name };
+      }
+    }
+    this.snap = { mode: this.mode, playing, pose: { x, y, theta }, linear, angular, simTime, wallHits, guards, closestGuard: closest };
     for (const cb of this.frameCbs) cb(this.snap);
   }
 
@@ -282,6 +358,7 @@ export class SimController {
     ctx.drawImage(this.ink.canvas, 0, 0, CANVAS_PX, CANVAS_PX);
     const { pose } = this.snap;
     if (this.goal) this.drawGoal(ctx, this.goal, pose);
+    for (const g of this.guards.values()) this.drawGuard(ctx, g, pose);
     if (this.diff) {
       const dots = (pts: [number, number][], color: string) => {
         ctx.fillStyle = color;
@@ -291,6 +368,26 @@ export class SimController {
       dots(this.diff.extra, "rgba(245,158,11,0.95)");
     }
     drawTurtle(ctx, pose.x, pose.y, pose.theta);
+  }
+
+  private drawGuard(ctx: CanvasRenderingContext2D, g: Guard, pose: Pose2D) {
+    const [gx, gy] = toPx(g.x, g.y);
+    const rr = this.guardRadius * PX_PER_M;
+    const breached = Math.hypot(pose.x - g.x, pose.y - g.y) < this.guardRadius;
+    ctx.save();
+    ctx.fillStyle = breached ? "rgba(255,84,112,0.30)" : "rgba(150,90,230,0.30)";
+    ctx.beginPath(); ctx.arc(gx, gy, rr, 0, Math.PI * 2); ctx.fill();
+    ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
+    ctx.strokeStyle = breached ? "rgba(255,84,112,0.95)" : "rgba(200,170,255,0.75)";
+    ctx.beginPath(); ctx.arc(gx, gy, rr, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#ef3b3b"; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(gx, gy, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.font = "600 10px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillStyle = "#ffffff";
+    ctx.fillText(g.name, gx, gy - rr + 12 < 10 ? gy + 22 : gy - rr + 12);
+    ctx.font = "9px ui-monospace, monospace"; ctx.fillStyle = "rgba(255,255,255,0.65)";
+    ctx.fillText(`safe radius ${this.guardRadius.toFixed(1)}`, gx, Math.min(CANVAS_PX - 4, gy + rr + 11));
+    ctx.restore();
   }
 
   private drawGoal(ctx: CanvasRenderingContext2D, g: Goal, pose: Pose2D) {

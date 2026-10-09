@@ -13,9 +13,14 @@ export type RunChunk = {
   segments: [number, number, number, number, number, number, number, number, number][];
   clears: [number, number][];
   logs: { tick: number; level: string; msg: string }[];
+  events: SimEvent[];
   tick: number;
   wall_hits: number;
 };
+export type SimEvent =
+  | { tick: number; type: "spawn"; name: string; x: number; y: number; theta: number }
+  | { tick: number; type: "kill"; name: string }
+  | { tick: number; type: "teleport" };
 export type WorkerRunResult = {
   status: "finished" | "time_limit" | "error";
   error: string | null;
@@ -51,7 +56,7 @@ export type PythonRuntimeOptions = {
   runTimeoutMs: number;
 };
 
-const SIM_FILES = ["__init__.py", "engine.py", "shim.py", "score.py", "runner.py"];
+const SIM_FILES = ["__init__.py", "engine.py", "shim.py", "score.py", "runner.py", "arena.py"];
 
 export class TimeoutError extends Error {}
 export class CancelledError extends Error {}

@@ -87,3 +87,27 @@ Other calls: `rvx.exec("pip install numpy")`, `rvx.setSpeed(1 | 2 | 4 | "instant
    wheels yourself and set `rvx.configure({ packageBaseUrl: "/pyodide-packages/" })`.
 4. If you add a Content-Security-Policy, include:
    `worker-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline'; connect-src 'self' https://cdn.jsdelivr.net https://pypi.org https://files.pythonhosted.org`.
+
+## Level 2 tasks (PS1 / PS2 from the poster)
+
+`tasks.ts` + `tasks.data.json` define the 7 tasks: PS1 Task 1 (Reach the Goal), PS1 Task 2 (Dodge the Guards),
+PS2 Task 3 (Basic Shapes), and PS2 Task 4 (Star, House, Flower or Spiral, one card per participant).
+
+```tsx
+import { TASKS, getTask, tasksFor, assignCard, rvx, useRvx } from "@/rvx-runtime";
+
+const myTasks = tasksFor(user.id);          // [Task 1, Task 2, Task 3, this participant's Task-4 card]
+rvx.setTask(task);                          // start pose, goal, guards, ghost target, auto-evaluation
+setEditorValue(task.starterCode);           // starter template for the editor
+
+const s = useRvx();
+s.evaluation?.passed                        // true when every check is green
+s.evaluation?.checks                        // [{ label, ok, detail }] → AUTO EVALUATION row
+s.evaluation?.score                         // shape match % (Task 3/4)
+s.closestGuard                              // { distance, name } live (Task 2)
+```
+
+- The task text for the left panel is `task.title`, `task.summary` and `task.descriptionMd` (render it with react-markdown).
+- Task 2 unlocks when Task 1 has `evaluation.passed`. Task 4 uses `assignCard(user.id)`: the same user always gets the same card.
+- `/spawn` creates static guard turtles. They are drawn as red dots with a 1.0 safe radius and publish `/<name>/pose`.
+- Do not ship the reference solutions (`packages/rvx-sim/solutions/`) to the browser.

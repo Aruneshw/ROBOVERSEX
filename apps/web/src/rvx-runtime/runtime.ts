@@ -11,7 +11,8 @@ import { useSyncExternalStore } from "react";
 import { CENTER } from "@/sim/engine";
 import type { ScoreResult, Target } from "@/sim/score";
 import { PythonRuntime, type BootInfo, type WorkerRunResult } from "./python-runtime";
-import { SimController, type Goal, type Pose2D, type SimMode, type SimSnapshot, type Speed } from "./sim-controller";
+import { SimController, type Goal, type Guard, type Pose2D, type SimMode, type SimSnapshot, type Speed } from "./sim-controller";
+import { evaluateTask, type ArenaTask, type TaskEvaluation } from "./tasks";
 import { RvxShell } from "./shell";
 import type { Terminal } from "@xterm/xterm";
 
@@ -79,6 +80,13 @@ export type RvxState = {
   /** within goal tolerance and stopped */
   goalReached: boolean;
   lastRun: RunOutcome | null;
+  /** the Level-2 task set with rvx.setTask(), if any */
+  task: ArenaTask | null;
+  /** auto-evaluation of the last finished run of `task` */
+  evaluation: TaskEvaluation | null;
+  /** spawned guard turtles currently on screen, and turtle1's closest approach this run */
+  guards: Guard[];
+  closestGuard: { distance: number; name: string } | null;
 };
 
 const DEFAULTS: RvxConfig = {
@@ -112,6 +120,7 @@ export class RvxRuntime {
       runtime: "offline", activity: "booting", python: null, pyodide: null, mode: "live", playing: false,
       pose: { x: CENTER, y: CENTER, theta: 0 }, linear: 0, angular: 0, simTime: 0, wallHits: 0,
       goal: null, distance: null, goalReached: false, lastRun: null,
+      task: null, evaluation: null, guards: [], closestGuard: null,
     };
     this.sim.onFrame((s) => this.onSimFrame(s));
     this.sim.onWorldLog = (l) => {
@@ -142,6 +151,24 @@ export class RvxRuntime {
       this.sim.configure({ start: t.start, target: t.target ?? null, goal: t.goal ?? null });
       this.patch({ goal: t.goal ?? null });
     }
+  }
+
+  /**
+   * Load a Level-2 task: start pose, goal, ghost target, guard radius, limits and auto-evaluation.
+   * (Does not touch the editor — put task.starterCode there yourself if you want it.)
+   */
+  setTask(task: ArenaTask | null) {
+    if (this.shell.isBusy) this.shell.stop();
+    this.sim.guardRadius = task?.guards?.safeRadius ?? 1.0;
+    this.configure({
+      task: task
+        ? {
+            start: task.start, target: task.target, goal: task.goal, maxSimSec: task.maxSimSec,
+            tolerance: task.tolerance, passThreshold: task.passThreshold, rules: task.rules,
+          }
+        : {},
+    });
+    this.patch({ task, evaluation: null, lastRun: null }, true);
   }
 
   attachTerminal(term: Terminal): () => void { return this.shell.attach(term); }
@@ -204,7 +231,10 @@ export class RvxRuntime {
       teleported: r?.teleported ?? false, preview: r?.preview ?? null, finalPose: { ...s.pose },
       distance, goalReached: g && distance !== null ? distance <= (g.tolerance ?? 0.1) : null, at: Date.now(),
     };
-    this.patch({ lastRun: outcome }, true);
+    const task = this.state.task;
+    const run = this.sim.programData();
+    const evaluation = task && run && status !== "stopped" ? evaluateTask(task, run, r, this.config.getCode()) : this.state.evaluation;
+    this.patch({ lastRun: outcome, evaluation }, true);
   }
 
   // ------------------------------------------------------------ state
@@ -215,6 +245,7 @@ export class RvxRuntime {
     this.patch({
       mode: s.mode, playing: s.playing, pose: s.pose, linear: s.linear, angular: s.angular,
       simTime: s.simTime, wallHits: s.wallHits, goal: g, distance, goalReached,
+      guards: s.guards, closestGuard: s.closestGuard,
     });
   }
   private patch(p: Partial<RvxState>, now = false) {

@@ -61,10 +61,11 @@ const GLUE = String.raw`
 import sys, json, importlib.metadata as _md
 sys.path.insert(0, "/home/pyodide")
 import js
+import rvx_sim.arena  # /spawn, /kill, /<name>/pose (Level 2 tasks)
 from rvx_sim import engine as _eng, runner as _runner
 from rvx_sim.score import score_trace as _score
 
-_S = {"arm": False, "w": None, "pi": 0, "si": 0, "li": 0, "nseg": 0, "last": 0, "chunk": 10}
+_S = {"arm": False, "w": None, "pi": 0, "si": 0, "li": 0, "ei": 0, "nseg": 0, "last": 0, "chunk": 10}
 
 def _rvx_flush(w, final=False):
     s = _S
@@ -85,10 +86,12 @@ def _rvx_flush(w, final=False):
     s["si"] = len(w.segments)
     logs = w.logs[s["li"]:]
     s["li"] = len(w.logs)
+    events = [e for e in w.events[s["ei"]:] if e.get("type") in ("spawn", "kill", "teleport")]
+    s["ei"] = len(w.events)
     s["last"] = w.tick
-    if poses or segs or clears or logs or final:
+    if poses or segs or clears or logs or events or final:
         js.rvx_emit(json.dumps({"t0": t0, "poses": poses, "segments": segs, "clears": clears,
-                                "logs": logs, "tick": w.tick, "wall_hits": w.wall_hits}))
+                                "logs": logs, "events": events, "tick": w.tick, "wall_hits": w.wall_hits}))
 
 _orig_init = _eng.TurtleWorld.__init__
 _orig_step = _eng.TurtleWorld.step
@@ -96,7 +99,7 @@ _orig_step = _eng.TurtleWorld.step
 def _init(self, *a, **k):
     _orig_init(self, *a, **k)
     if _S["arm"]:
-        _S.update(arm=False, w=self, pi=0, si=0, li=0, nseg=0, last=0)
+        _S.update(arm=False, w=self, pi=0, si=0, li=0, ei=0, nseg=0, last=0)
 
 def _step(self):
     _orig_step(self)
