@@ -1,0 +1,151 @@
+{
+  "tasks": [
+    {
+      "level": 1,
+      "slug": "l1-square-orbit",
+      "title": "Square Orbit",
+      "mode": "teleop",
+      "order_index": 1,
+      "description_md": "Drive **turtle1** from the centre of the arena and trace the 2 × 2 square shown in the target.\n\n- Start pose: centre, facing east (θ = 0).\n- Every `Twist` moves the turtle for **exactly 1 second**.\n- Teleport services are **disabled** for this mission.\n- Submit when your drawing matches the target. Order and direction do not matter.",
+      "target": {
+        "version": 1,
+        "start_pose": {
+          "x": 5.544445,
+          "y": 5.544445,
+          "theta": 0.0
+        },
+        "strokes": [
+          {
+            "points": [
+              [
+                5.544445,
+                5.544445
+              ],
+              [
+                7.544445,
+                5.544445
+              ],
+              [
+                7.544445,
+                7.544445
+              ],
+              [
+                5.544445,
+                7.544445
+              ],
+              [
+                5.544445,
+                5.544445
+              ]
+            ],
+            "color": [
+              179,
+              184,
+              255
+            ]
+          }
+        ]
+      },
+      "tolerance": 0.12,
+      "pass_threshold": 100,
+      "max_sim_sec": 1800,
+      "idle_stop_sec": 5,
+      "rules": {
+        "allow_teleport": false
+      },
+      "check_color": false,
+      "starter_code": "",
+      "hints": [
+        "linear.x = 2.0 for one second moves exactly 2.0 units.",
+        "Turning 90° = angular.z of 1.5708 (π/2) for one second, or use rotate_absolute.",
+        "Teleop shortcut: ↑ moves 2.0 units; R / D / V / G rotate exactly to 90° / 180° / −90° / 0°."
+      ],
+      "reference_solution": "ros2 topic pub --once /turtle1/cmd_vel geometry_msgs/msg/Twist \"{linear: {x: 2.0}}\"\n# wait 1 s, then rotate to 90 deg:\nros2 action send_goal /turtle1/rotate_absolute turtlesim/action/RotateAbsolute \"{theta: 1.5708}\"\n# ...repeat for 180, -90 and back to 0 (or use teleop keys: Up, R, Up, D, Up, V, Up)",
+      "is_published": true
+    },
+    {
+      "level": 2,
+      "slug": "l2-star-forge",
+      "title": "Star Forge",
+      "mode": "code",
+      "order_index": 1,
+      "description_md": "Write a ROS 2 Python node that draws the **five-point star** shown in the target.\n\n- Start pose: (3.0, 4.0), facing east.\n- Each edge is 4.0 units long.\n- Teleport services are **disabled**.\n- Your node must use `/turtle1/cmd_vel` (`geometry_msgs/msg/Twist`). It may read `/turtle1/pose`.\n- The same code would run on a real ROS 2 turtlesim.",
+      "target": {
+        "version": 1,
+        "start_pose": {
+          "x": 3.0,
+          "y": 4.0,
+          "theta": 0.0
+        },
+        "strokes": [
+          {
+            "points": [
+              [
+                3.0,
+                4.0
+              ],
+              [
+                7.0,
+                4.0
+              ],
+              [
+                3.763932,
+                1.648859
+              ],
+              [
+                5.0,
+                5.453085
+              ],
+              [
+                6.236068,
+                1.648859
+              ],
+              [
+                3.0,
+                4.0
+              ]
+            ],
+            "color": [
+              179,
+              184,
+              255
+            ]
+          }
+        ]
+      },
+      "tolerance": 0.12,
+      "pass_threshold": 100,
+      "max_sim_sec": 120,
+      "idle_stop_sec": 5,
+      "rules": {
+        "allow_teleport": false
+      },
+      "check_color": false,
+      "starter_code": "import math\nimport rclpy\nfrom rclpy.node import Node\nfrom geometry_msgs.msg import Twist\nfrom turtlesim.msg import Pose\n\n\nclass Mission(Node):\n    def __init__(self):\n        super().__init__(\"roboverse_mission\")\n        self.cmd = self.create_publisher(Twist, \"/turtle1/cmd_vel\", 10)\n        self.create_subscription(Pose, \"/turtle1/pose\", self.on_pose, 10)\n        self.pose = None\n        self.step = 0\n        self.timer = self.create_timer(1.0, self.on_timer)\n\n    def on_pose(self, msg: Pose):\n        self.pose = msg\n\n    def on_timer(self):\n        # TODO: publish Twist messages that draw the target.\n        # Remember: one Twist keeps the turtle moving for exactly 1.0 second.\n        msg = Twist()\n        self.cmd.publish(msg)\n        self.step += 1\n\n\ndef main():\n    rclpy.init()\n    node = Mission()\n    rclpy.spin(node)\n\n\nif __name__ == \"__main__\":\n    main()\n",
+      "hints": [
+        "A five-point star turns −144° (−2.5133 rad) at every vertex.",
+        "Use a 1.0 s timer: even steps drive 4.0 units, odd steps turn.",
+        "Stop publishing (or call rclpy.shutdown()) after 10 steps."
+      ],
+      "reference_solution": "\nimport math\nimport rclpy\nfrom rclpy.node import Node\nfrom geometry_msgs.msg import Twist\nfrom turtlesim.msg import Pose\n\nclass StarDrawer(Node):\n    def __init__(self):\n        super().__init__(\"star_drawer\")\n        self.pub = self.create_publisher(Twist, \"turtle1/cmd_vel\", 10)\n        self.sub = self.create_subscription(Pose, \"/turtle1/pose\", self.on_pose, 10)\n        self.pose = None\n        self.step = 0\n        self.timer = self.create_timer(1.0, self.tick)\n\n    def on_pose(self, msg):\n        self.pose = msg\n\n    def tick(self):\n        if self.step >= 10:\n            self.get_logger().info(f\"Star complete at x={self.pose.x:.2f}\")\n            self.timer.cancel()\n            rclpy.shutdown()\n            return\n        m = Twist()\n        if self.step % 2 == 0:\n            m.linear.x = 4.0\n        else:\n            m.angular.z = -4 * math.pi / 5\n        self.pub.publish(m)\n        self.step += 1\n\ndef main(args=None):\n    rclpy.init(args=args)\n    node = StarDrawer()\n    try:\n        rclpy.spin(node)\n    except KeyboardInterrupt:\n        pass\n\nif __name__ == \"__main__\":\n    main()\n",
+      "is_published": true
+    }
+  ],
+  "teams": [
+    {
+      "code": "RVX-001",
+      "name": "Team Alpha",
+      "institution": "BIT"
+    },
+    {
+      "code": "RVX-002",
+      "name": "Team Beta",
+      "institution": "BIT"
+    },
+    {
+      "code": "RVX-003",
+      "name": "Team Gamma",
+      "institution": "BIT"
+    }
+  ]
+}
