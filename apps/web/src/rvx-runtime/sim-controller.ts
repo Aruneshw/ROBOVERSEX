@@ -72,7 +72,7 @@ export class SimController {
   onWorldLog?: (l: LogLine) => void;
 
   // ------------------------------------------------------------ setup
-  configure(o: { start?: Pose2D; target?: Target | null; goal?: Goal | null }) {
+  configure(o: { start?: Pose2D | undefined; target?: Target | null | undefined; goal?: Goal | null | undefined }) {
     if (o.target !== undefined) this.target = o.target;
     if (o.goal !== undefined) this.goal = o.goal;
     const start = o.start ?? (o.target ? o.target.start_pose : undefined);

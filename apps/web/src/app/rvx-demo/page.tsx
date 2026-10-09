@@ -60,7 +60,7 @@ if __name__ == '__main__':
 export default function RvxDemo() {
   const [code, setCode] = useState(STARTER);
   const codeRef = useRef(code);
-  codeRef.current = code;
+  useEffect(() => { codeRef.current = code; }, [code]);
   const s = useRvx();
 
   useEffect(() => {

@@ -36,7 +36,7 @@ export type RuntimeEvents = {
 type Pending = {
   onChunk?: (c: RunChunk) => void;
   onText?: (t: string) => void;
-  onStart?: () => void;
+  onStart?: (() => void) | undefined;
   resolve: (v: unknown) => void;
   reject: (e: Error) => void;
   watchdog?: ReturnType<typeof setTimeout>;
@@ -65,7 +65,10 @@ export class PythonRuntime {
     bootLog: new Set(), progress: new Set(), ready: new Set(), bootError: new Set(),
   };
   info: BootInfo | null = null;
-  constructor(public opts: PythonRuntimeOptions) {}
+  opts: PythonRuntimeOptions;
+  constructor(opts: PythonRuntimeOptions) {
+    this.opts = opts;
+  }
 
   on<K extends keyof RuntimeEvents>(ev: K, cb: RuntimeEvents[K]): () => void {
     (this.listeners[ev] as Set<RuntimeEvents[K]>).add(cb);

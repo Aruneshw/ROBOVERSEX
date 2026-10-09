@@ -63,7 +63,6 @@ export class RvxShell {
   private interrupt: (() => void) | null = null;
   private teleopHandler: ((key: string) => void) | null = null;
   private replMore = false;
-  private booted = false;
   private bootStarted = false;
   private dls = new Map<number, Dl>();
   private curDl: number | null = null;
@@ -71,7 +70,10 @@ export class RvxShell {
   private progressStyle: "boot" | "pip" = "pip";
   private bootT0 = 0;
 
-  constructor(private rt: RvxRuntime) {
+  private rt: RvxRuntime;
+
+  constructor(rt: RvxRuntime) {
+    this.rt = rt;
     rt.py.on("progress", (p) => this.onProgress(p));
     rt.py.on("bootLog", (text, t) => this.out(`${C.dim}[${t.toFixed(6).padStart(12)}]${C.reset} ${text}\n`));
     try {
@@ -293,7 +295,6 @@ export class RvxShell {
     this.rt.setActivity("booting");
     this.interrupt = null;
     await this.ensureBoot(true);
-    this.booted = true;
     this.motd();
     this.mode = "prompt";
     this.toPrompt();
