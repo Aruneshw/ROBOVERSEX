@@ -62,17 +62,6 @@ export function MalpracticeGuard() {
       }
     };
 
-    // When a Snipping Tool is opened, the window loses focus.
-    // We blank the screen immediately, but we don't show the malpractice window
-    // to respect the user's request of not showing it on tab switch.
-    const handleBlur = () => {
-      blankScreen();
-    };
-
-    const handleFocus = () => {
-      restoreScreen();
-    };
-
     const handleVisibilityChange = () => {
       if (document.hidden) {
         blankScreen();
@@ -87,16 +76,12 @@ export function MalpracticeGuard() {
 
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     window.addEventListener("keyup", handleKeyUp, { capture: true });
-    window.addEventListener("blur", handleBlur);
-    window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("contextmenu", handleContextMenu);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
       window.removeEventListener("keyup", handleKeyUp, { capture: true });
-      window.removeEventListener("blur", handleBlur);
-      window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("contextmenu", handleContextMenu);
     };
