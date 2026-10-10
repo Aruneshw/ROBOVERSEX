@@ -39,9 +39,9 @@
   "ps": 1,
   "task": 2,
   "card": null,
-  "title": "Dodge the Guards",
-  "summary": "Spawn obstacle1, obstacle2 and obstacle3, then reach the goal without coming within 1.0 unit of any of them.",
-  "descriptionMd": "Spawn three obstacle turtles with **`/spawn`**, then reach the goal **(9.0, 9.0)** (stop within 0.1) **without ever coming within 1.0 unit** of any of them.\n\n| Name | x | y |\n|---|---|---|\n| `obstacle1` | 7.0 | 7.0 |\n| `obstacle2` | 3.5 | 8.0 |\n| `obstacle3` | 8.5 | 4.0 |\n\n- Read each guard's position from **`/obstacleN/pose`**.\n- The straight path is blocked by `obstacle1` \u2014 plan around it.\n- Teleport is not allowed.",
+  "title": "Room Cleaning (Zig-Zag)",
+  "summary": "Spawn obstacle1, obstacle2 and obstacle3. Clean the screen by moving in a zig-zag pattern, avoiding the obstacles, and finish at the goal.",
+  "descriptionMd": "Spawn three obstacle turtles with **`/spawn`**, then clean the screen by driving the turtle in a **zig-zag pattern** like a room-cleaning robot. While cleaning, you must **avoid all obstacles** (do not come within 1.0 unit) and eventually finish at the goal **(9.0, 9.0)** (stop within 0.1).\n\n| Name | x | y |\n|---|---|---|\n| `obstacle1` | 7.0 | 7.0 |\n| `obstacle2` | 3.5 | 8.0 |\n| `obstacle3` | 8.5 | 4.0 |\n\n- Read each guard's position from **`/obstacleN/pose`**.\n- Maintain a zig-zag path to cover the area.\n- Teleport is not allowed.",
   "start": {
    "x": 5.544445,
    "y": 5.544445,
