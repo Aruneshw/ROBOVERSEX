@@ -7,18 +7,6 @@ import ReactMarkdown from "react-markdown";
 export function MainWorkspace({ flow, code, setCode }: { flow: any, code: string, setCode: (c: string) => void }) {
   const s = useRvx();
 
-  if (flow.allDone) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0a0f1c] text-white">
-        <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6">
-          <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400"><polyline points="20 6 9 17 4 12"></polyline></svg>
-        </div>
-        <h1 className="text-4xl font-black tracking-tight">All missions complete!</h1>
-        <p className="text-slate-400 mt-2">You have successfully finished all Level 2 tasks.</p>
-      </div>
-    );
-  }
-
   const task = flow.current;
 
   if (task.task === 4) {
