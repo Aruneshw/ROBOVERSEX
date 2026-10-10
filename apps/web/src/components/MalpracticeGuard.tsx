@@ -8,10 +8,30 @@ export function MalpracticeGuard() {
 
   useEffect(() => {
     const triggerMalpractice = () => {
-      setIsMalpractice(true);
-      // Automatically hide the warning after 5 seconds so they can continue,
-      // or you could leave it permanently by removing the setTimeout.
-      setTimeout(() => setIsMalpractice(false), 5000);
+      // 1. Instantly hide the page content synchronously so the OS captures a black/blank screen
+      let style = document.getElementById("anti-screenshot-style");
+      if (!style) {
+        style = document.createElement("style");
+        style.id = "anti-screenshot-style";
+        style.innerHTML = "html, body { opacity: 0 !important; background: black !important; }";
+        document.head.appendChild(style);
+      }
+
+      // Try to clear clipboard to prevent pasted screenshots
+      try {
+        navigator.clipboard.writeText("Screenshots are disabled in this environment.");
+      } catch (e) {}
+
+      // 2. Wait for the OS to finish the screenshot capture on the blank screen, 
+      // then remove the blanking style and show the Malpractice warning.
+      setTimeout(() => {
+        if (style) {
+          style.remove();
+        }
+        setIsMalpractice(true);
+        // Automatically hide the warning after 5 seconds so they can continue
+        setTimeout(() => setIsMalpractice(false), 5000);
+      }, 800); // 800ms delay to ensure the OS captures the blanked screen
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -42,34 +62,19 @@ export function MalpracticeGuard() {
       }
     };
 
-    // When the window loses focus (often happens when snipping tool is opened)
-    const handleBlur = () => {
-      triggerMalpractice();
-    };
-    
-    // When the user switches tabs or minimizes the window
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        triggerMalpractice();
-      }
-    };
-
     // Disable right click to prevent saving images or inspecting
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    window.addEventListener("blur", handleBlur);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    // Use capture phase to intercept the event as early as possible
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    window.addEventListener("keyup", handleKeyUp, { capture: true });
     window.addEventListener("contextmenu", handleContextMenu);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-      window.removeEventListener("blur", handleBlur);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+      window.removeEventListener("keyup", handleKeyUp, { capture: true });
       window.removeEventListener("contextmenu", handleContextMenu);
     };
   }, []);
@@ -81,7 +86,7 @@ export function MalpracticeGuard() {
       <AlertTriangle className="w-24 h-24 text-red-500 mb-6 animate-pulse" />
       <h1 className="text-5xl font-black mb-4 tracking-tight">MALPRACTICE DETECTED</h1>
       <p className="text-xl max-w-lg text-center text-red-200">
-        Screen capturing, recording, or leaving the testing environment is strictly prohibited. 
+        Screen capturing or recording is strictly prohibited. 
         Your actions have been logged.
       </p>
     </div>
