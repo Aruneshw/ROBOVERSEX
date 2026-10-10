@@ -267,22 +267,33 @@ function Task4Workspace({ flow, code, setCode, s, task }: any) {
               
               {/* Cards */}
               <div className="flex gap-3 mb-6">
-                <div className="w-20 h-24 bg-[#1a2333] border border-blue-500 rounded-lg flex flex-col items-center justify-center gap-2 relative shadow-[0_0_15px_rgba(59,130,246,0.15)]">
-                  <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center text-white"><svg viewBox="0 0 24 24" width="8" height="8" stroke="currentColor" strokeWidth="4" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                <div className={`w-20 h-24 border rounded-lg flex flex-col items-center justify-center gap-2 relative transition-all ${
+                  task.card === 1 ? 'bg-[#1a2333] border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] opacity-100' : 'bg-[#0a0f1c] border-slate-700 opacity-60'
+                }`}>
+                  {task.card === 1 && <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center text-white"><svg viewBox="0 0 24 24" width="8" height="8" stroke="currentColor" strokeWidth="4" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg></div>}
                   <svg viewBox="0 0 24 24" width="32" height="32" stroke="#fbbf24" strokeWidth="1.5" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                   <span className="text-[10px] font-bold text-slate-300">Star</span>
                 </div>
-                <div className="w-20 h-24 bg-[#0a0f1c] border border-slate-700 rounded-lg flex flex-col items-center justify-center gap-2 opacity-60">
+                <div className={`w-20 h-24 border rounded-lg flex flex-col items-center justify-center gap-2 relative transition-all ${
+                  task.card === 2 ? 'bg-[#1a2333] border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] opacity-100' : 'bg-[#0a0f1c] border-slate-700 opacity-60'
+                }`}>
+                  {task.card === 2 && <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center text-white"><svg viewBox="0 0 24 24" width="8" height="8" stroke="currentColor" strokeWidth="4" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg></div>}
                   <svg viewBox="0 0 24 24" width="32" height="32" stroke="#f97316" strokeWidth="1.5" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-                  <span className="text-[10px] font-bold text-slate-500">House</span>
+                  <span className="text-[10px] font-bold text-slate-300">House</span>
                 </div>
-                <div className="w-20 h-24 bg-[#0a0f1c] border border-slate-700 rounded-lg flex flex-col items-center justify-center gap-2 opacity-60">
+                <div className={`w-20 h-24 border rounded-lg flex flex-col items-center justify-center gap-2 relative transition-all ${
+                  task.card === 3 ? 'bg-[#1a2333] border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] opacity-100' : 'bg-[#0a0f1c] border-slate-700 opacity-60'
+                }`}>
+                  {task.card === 3 && <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center text-white"><svg viewBox="0 0 24 24" width="8" height="8" stroke="currentColor" strokeWidth="4" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg></div>}
                   <svg viewBox="0 0 24 24" width="32" height="32" stroke="#f472b6" strokeWidth="1.5" fill="none"><path d="M12 22c5-5 5-11 0-16-5 5-5 11 0 16z"></path><path d="M2 12c5 5 11 5 16 0-5-5-11-5-16 0z"></path></svg>
-                  <span className="text-[10px] font-bold text-slate-500">Flower</span>
+                  <span className="text-[10px] font-bold text-slate-300">Flower</span>
                 </div>
-                <div className="w-20 h-24 bg-[#0a0f1c] border border-slate-700 rounded-lg flex flex-col items-center justify-center gap-2 opacity-60">
+                <div className={`w-20 h-24 border rounded-lg flex flex-col items-center justify-center gap-2 relative transition-all ${
+                  task.card === 4 ? 'bg-[#1a2333] border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] opacity-100' : 'bg-[#0a0f1c] border-slate-700 opacity-60'
+                }`}>
+                  {task.card === 4 && <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center text-white"><svg viewBox="0 0 24 24" width="8" height="8" stroke="currentColor" strokeWidth="4" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg></div>}
                   <svg viewBox="0 0 24 24" width="32" height="32" stroke="#38bdf8" strokeWidth="1.5" fill="none"><path d="M12 12c-2 0-3 1-3 3s2 4 5 4 6-3 6-7-4-8-9-8-10 5-10 11 6 12 13 12"></path></svg>
-                  <span className="text-[10px] font-bold text-slate-500">Spiral</span>
+                  <span className="text-[10px] font-bold text-slate-300">Spiral</span>
                 </div>
               </div>
 
@@ -341,9 +352,16 @@ function Task4Workspace({ flow, code, setCode, s, task }: any) {
                 
                 <div className="font-bold text-slate-300 mb-2 text-xs">Target Preview</div>
                 <div className="w-full aspect-square border border-slate-700 rounded-lg flex items-center justify-center mb-2 bg-[#0a0f1c] overflow-hidden">
-                  <svg viewBox="0 0 100 100" width="80%" height="80%" stroke="#fbbf24" strokeWidth="3" fill="none"><polygon points="50 10 63 40 95 40 70 60 78 90 50 72 22 90 30 60 5 40 37 40 50 10"></polygon></svg>
+                  {task.card === 1 && <svg viewBox="0 0 100 100" width="80%" height="80%" stroke="#fbbf24" strokeWidth="3" fill="none"><polygon points="50 10 63 40 95 40 70 60 78 90 50 72 22 90 30 60 5 40 37 40 50 10"></polygon></svg>}
+                  {task.card === 2 && <svg viewBox="0 0 100 100" width="80%" height="80%" stroke="#f97316" strokeWidth="3" fill="none"><path d="M20 50 L50 20 L80 50 V90 H20 Z"></path><rect x="40" y="60" width="20" height="30"></rect></svg>}
+                  {task.card === 3 && (
+                    <svg viewBox="0 0 100 100" width="80%" height="80%" stroke="#f472b6" strokeWidth="3" fill="none">
+                      <circle cx="50" cy="50" r="10"></circle><circle cx="50" cy="30" r="15"></circle><circle cx="50" cy="70" r="15"></circle><circle cx="30" cy="50" r="15"></circle><circle cx="70" cy="50" r="15"></circle>
+                    </svg>
+                  )}
+                  {task.card === 4 && <svg viewBox="0 0 100 100" width="80%" height="80%" stroke="#38bdf8" strokeWidth="3" fill="none"><path d="M50 50 C 50 35, 70 35, 70 50 C 70 75, 30 75, 30 50 C 30 15, 85 15, 85 50 C 85 90, 15 90, 15 50" /></svg>}
                 </div>
-                <div className="text-[9px] text-slate-500 text-center uppercase tracking-wide">CARD: Star (one stroke)</div>
+                <div className="text-[9px] text-slate-500 text-center uppercase tracking-wide">CARD: {task.card === 1 ? 'Star (one stroke)' : task.card === 2 ? 'House' : task.card === 3 ? 'Flower' : 'Spiral'}</div>
               </div>
             </div>
           </div>
