@@ -31,7 +31,7 @@ export default function ArenaPage() {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#0a0f1c] text-slate-200 font-sans">
       <TopNav />
-      <SubHeader />
+      <SubHeader flow={flow} />
       
       {toast && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-xl font-bold z-50 animate-bounce">
