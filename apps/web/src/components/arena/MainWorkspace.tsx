@@ -30,7 +30,7 @@ export function MainWorkspace({ flow, code, setCode }: { flow: any, code: string
           <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center shrink-0">
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400"><circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line></svg>
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 select-none">
             <h2 className="text-white font-bold text-lg truncate">{task.title}</h2>
             <div className="text-slate-400 text-xs mt-1 max-h-16 overflow-y-auto custom-scrollbar markdown-preview">
               <ReactMarkdown>{task.descriptionMd.replace(/\\*\\*/g, "")}</ReactMarkdown>
