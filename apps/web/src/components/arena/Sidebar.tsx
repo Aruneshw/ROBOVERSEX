@@ -1,7 +1,7 @@
 import { Lock, PlayCircle, Lightbulb, CheckCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
-export function Sidebar({ flow }: { flow: any }) {
+export function Sidebar({ flow, activeLevel = 1 }: { flow: any, activeLevel?: 1 | 2 }) {
   const completed = flow.completed || 0;
   const total = flow.total || 4;
   const progressPercent = Math.round((completed / total) * 100);
@@ -16,7 +16,7 @@ export function Sidebar({ flow }: { flow: any }) {
             <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
           </div>
           <div>
-            <h2 className="text-lg font-black tracking-tight uppercase">Level 2 Challenge</h2>
+            <h2 className="text-lg font-black tracking-tight uppercase">Level {activeLevel} Challenge</h2>
             <p className="text-xs text-slate-500 font-medium mt-1">Complete all tasks in order.</p>
           </div>
         </div>

@@ -24,6 +24,23 @@ export default function ArenaPage() {
     },
   });
 
+  const [activeLevel, setActiveLevel] = useState<1 | 2>(flow.current?.ps || 1);
+  
+  useEffect(() => {
+    if (flow.current?.ps) setActiveLevel(flow.current.ps);
+  }, [flow.current?.ps]);
+
+  const level1Done = flow.tasks.filter(t => t.task.ps === 1).every(t => t.state === "passed");
+  
+  const activeTasks = flow.tasks.filter(t => t.task.ps === activeLevel);
+  const derivedFlow = {
+    ...flow,
+    tasks: activeTasks.map((ft, i) => ({ ...ft, index: i })),
+    completed: activeTasks.filter(t => t.state === "passed").length,
+    total: activeTasks.length,
+    allDone: activeTasks.every(t => t.state === "passed")
+  };
+
   useEffect(() => {
     rvx.configure({ user: "arunesh", host: "roboverse-x", fileName: "solution.py", getCode: () => codeRef.current });
   }, []);
@@ -31,7 +48,7 @@ export default function ArenaPage() {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#0a0f1c] text-slate-200 font-sans">
       <TopNav />
-      <SubHeader flow={flow} />
+      <SubHeader activeLevel={activeLevel} setActiveLevel={setActiveLevel} level1Done={level1Done} />
       
       {toast && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-xl font-bold z-50 animate-bounce">
@@ -40,7 +57,7 @@ export default function ArenaPage() {
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar flow={flow} />
+        <Sidebar flow={derivedFlow} activeLevel={activeLevel} />
         <MainWorkspace flow={flow} code={code} setCode={setCode} />
       </div>
     </div>
