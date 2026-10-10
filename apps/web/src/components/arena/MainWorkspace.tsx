@@ -1,11 +1,13 @@
 "use client";
 
-import { Play, RotateCcw, Settings, Trash2, X, Send, Monitor, Maximize2, CheckCircle2, Share2 } from "lucide-react";
+import { Play, RotateCcw, Settings, Trash2, X, Send, Monitor, Maximize2, Minimize2, CheckCircle2, Share2 } from "lucide-react";
 import { RvxSimulator, RvxTerminal, rvx, useRvx } from "@/rvx-runtime";
 import ReactMarkdown from "react-markdown";
+import { useState } from "react";
 
 export function MainWorkspace({ flow, code, setCode }: { flow: any, code: string, setCode: (c: string) => void }) {
   const s = useRvx();
+  const [simMaximized, setSimMaximized] = useState(false);
 
   const task = flow.current;
 
@@ -89,15 +91,20 @@ export function MainWorkspace({ flow, code, setCode }: { flow: any, code: string
           
           <div className="flex-[1.2] flex gap-4 min-h-0">
             {/* Simulation Canvas */}
-            <div className="flex-1 bg-[#11192b] border border-slate-700/50 rounded-xl p-4 flex flex-col shadow-lg overflow-hidden">
+            <div className={`flex-1 bg-[#11192b] border border-slate-700/50 rounded-xl p-4 flex flex-col shadow-lg overflow-hidden ${simMaximized ? 'fixed inset-4 z-50 shadow-2xl' : ''}`}>
               <div className="flex items-center justify-between mb-4 shrink-0">
                 <div className="font-bold text-slate-200 text-sm flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                   LIVE SIMULATION
                 </div>
-                <button onClick={() => rvx.reset()} className="text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 px-3 py-1 bg-slate-800 rounded-md transition-colors border border-slate-700">
-                  <RotateCcw className="w-3.5 h-3.5" /> Reset
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => rvx.reset()} className="text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 px-3 py-1 bg-slate-800 rounded-md transition-colors border border-slate-700">
+                    <RotateCcw className="w-3.5 h-3.5" /> Reset
+                  </button>
+                  <button onClick={() => setSimMaximized(!simMaximized)} className="text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 px-3 py-1 bg-slate-800 rounded-md transition-colors border border-slate-700">
+                    {simMaximized ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />} {simMaximized ? "Minimize" : "Maximize"}
+                  </button>
+                </div>
               </div>
               <div className="flex-1 min-h-0">
                 <div style={{ width: "100%", height: "100%", minHeight: 240 }}>
@@ -198,6 +205,7 @@ export function MainWorkspace({ flow, code, setCode }: { flow: any, code: string
 }
 
 function Task4Workspace({ flow, code, setCode, s, task }: any) {
+  const [simMaximized, setSimMaximized] = useState(false);
   return (
     <div className="flex-1 flex flex-col bg-[#0a0f1c] min-w-0 p-4 gap-4 overflow-y-auto custom-scrollbar">
       {/* Top Header */}
@@ -301,7 +309,7 @@ function Task4Workspace({ flow, code, setCode, s, task }: any) {
           </div>
 
           {/* Right: Simulation */}
-          <div className="flex-1 bg-[#11192b] border border-slate-700/50 rounded-xl flex flex-row shadow-lg overflow-hidden">
+          <div className={`flex-1 bg-[#11192b] border border-slate-700/50 rounded-xl flex flex-row shadow-lg overflow-hidden ${simMaximized ? 'fixed inset-4 z-50 shadow-2xl' : ''}`}>
             <div className="flex-1 flex flex-col min-w-0">
               <div className="p-3 border-b border-slate-700/50 flex items-center justify-between font-bold text-slate-200 text-xs shrink-0">
                 <div className="flex items-center gap-2">
@@ -309,7 +317,11 @@ function Task4Workspace({ flow, code, setCode, s, task }: any) {
                 </div>
                 <div className="flex gap-2">
                   <RotateCcw onClick={() => rvx.reset()} className="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-white" />
-                  <Maximize2 className="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-white" />
+                  {simMaximized ? (
+                    <Minimize2 onClick={() => setSimMaximized(false)} className="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-white" />
+                  ) : (
+                    <Maximize2 onClick={() => setSimMaximized(true)} className="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-white" />
+                  )}
                 </div>
               </div>
               <div className="flex-1 min-h-0 bg-blue-600/90 relative flex items-center justify-center">
