@@ -186,7 +186,7 @@ def tasks():
     def task(card, letter, title, summary, md, start, strokes, max_sim, extra_checks, check_color=False):
         bbox = _bbox([p for s in strokes for p in s["points"]])
         return {
-            "id": f"ps3-t5-{letter.lower()}-{title.split()[0].lower()}", "ps": 3, "task": 5, "card": card,
+            "id": f"ps2-t5-{letter.lower()}-{title.split()[0].lower()}", "ps": 2, "task": 5, "card": card,
             "title": f"Challenge {letter} · {title}", "summary": summary,
             "descriptionMd": md + COMMON_RULES,
             "start": {"x": r5(start[0]), "y": r5(start[1]), "theta": 0.0}, "goal": None, "guards": None,

@@ -21,7 +21,7 @@ export type TaskCheck =
 
 export type ArenaTask = {
   id: string;
-  ps: 1 | 2 | 3;
+  ps: 1 | 2;
   task: 1 | 2 | 3 | 4 | 5;
   card: 1 | 2 | 3 | 4 | null;
   title: string;
@@ -82,7 +82,7 @@ export function assignCard(participantId: string, task: 4 | 5 = 4): ArenaTask {
   return cards[hash(task === 4 ? participantId : `extreme:${participantId}`) % cards.length];
 }
 
-/** Tasks in portal order: PS1 (Task 1 → 2), PS2 (Task 3, assigned Task-4 card), PS3 (assigned Task-5 extreme card). */
+/** Tasks in portal order: Level 1 = PS1 (Task 1 → 2); Level 2 = Task 3, assigned Task-4 card, assigned Task-5 extreme card. */
 export function tasksFor(participantId: string, opts: { extreme?: boolean } = {}): ArenaTask[] {
   const base = [getTask("ps1-t1-reach-goal"), getTask("ps1-t2-dodge-guards"), getTask("ps2-t3-basic-shapes"), assignCard(participantId, 4)];
   return opts.extreme === false ? base : [...base, assignCard(participantId, 5)];
@@ -220,7 +220,7 @@ export function evaluateTask(task: ArenaTask, run: ProgramData, result: WorkerRu
         add(c, c, false, "unknown check");
     }
   }
-  const evaluation: TaskEvaluation = { taskId: task.id, passed: checks.every((x) => x.ok), score, checks, at: Date.now(), code };
+  const evaluation: TaskEvaluation = { taskId: task.id, passed: checks.every((x) => x.ok), score, checks, at: typeof window === "undefined" ? 0 : Date.now(), code };
   if (task.rubric === "extreme") evaluation.rubric = rubricFor(task, run, result, checks);
   return evaluation;
 }
