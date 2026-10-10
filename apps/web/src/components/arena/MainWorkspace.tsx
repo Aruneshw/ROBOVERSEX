@@ -78,6 +78,9 @@ export function MainWorkspace({ flow, code, setCode }: { flow: any, code: string
                 setCode(v);
                 flow.saveDraft(v);
               }}
+              onCopy={e => e.preventDefault()}
+              onPaste={e => e.preventDefault()}
+              onCut={e => e.preventDefault()}
               className="w-full h-full bg-transparent text-slate-300 font-mono text-sm p-4 focus:outline-none resize-none custom-scrollbar"
               spellCheck="false"
             />
@@ -383,6 +386,9 @@ function Task4Workspace({ flow, code, setCode, s, task }: any) {
                   setCode(v);
                   flow.saveDraft(v);
                 }}
+                onCopy={e => e.preventDefault()}
+                onPaste={e => e.preventDefault()}
+                onCut={e => e.preventDefault()}
                 className="w-full h-full bg-transparent text-slate-300 font-mono text-[11px] leading-5 p-3 focus:outline-none resize-none custom-scrollbar"
                 spellCheck="false"
               />
