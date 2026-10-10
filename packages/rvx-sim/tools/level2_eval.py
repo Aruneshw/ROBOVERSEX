@@ -22,6 +22,33 @@ def _final(trace):
     return p[-3], p[-2], p[-1]
 
 
+def _bbox(segs):
+    if not segs:
+        return None
+    xs = [v for sg in segs for v in (sg[1], sg[3])]
+    ys = [v for sg in segs for v in (sg[2], sg[4])]
+    return min(xs), max(xs), min(ys), max(ys)
+
+
+def _strokes(segs):
+    n = 0
+    for i, sg in enumerate(segs):
+        if i == 0 or abs(segs[i - 1][3] - sg[1]) > 1e-4 or abs(segs[i - 1][4] - sg[2]) > 1e-4:
+            n += 1
+    return n
+
+
+def _peak_speed(poses, dt=0.01):
+    best = 0.0
+    for i in range(3, len(poses), 3):
+        best = max(best, math.hypot(poses[i] - poses[i - 3], poses[i + 1] - poses[i - 2]) / dt)
+    return best
+
+
+def _score(task, trace):
+    return score_trace(trace, {**task, "check_color": bool(task.get("checkColor", False))})
+
+
 def evaluate(task: dict, trace: dict, code: str = "") -> dict:
     checks = []
     add = lambda cid, label, ok, detail="": checks.append({"id": cid, "label": label, "ok": bool(ok), "detail": detail})
@@ -74,7 +101,7 @@ def evaluate(task: dict, trace: dict, code: str = "") -> dict:
             ok = best >= r and len(alive) >= len(task["guards"]["spawn"])
             add(c, f"Never within {r} of a guard", ok, f"closest {best:.3f} ({where})" if where else "no guards spawned")
         elif name == "shape_match":
-            res = score_trace(trace, task)
+            res = _score(task, trace)
             score = res["score"]
             add(c, f"Shape match ≥ {task['passThreshold']}%", finished and score >= task["passThreshold"],
                 f"{score:.2f}% (recall {res['recall']:.3f}, precision {res['precision']:.3f})")
@@ -93,6 +120,59 @@ def evaluate(task: dict, trace: dict, code: str = "") -> dict:
             tp = {e["tick"] for e in events if e["type"] == "teleport"}
             bad = sum(1 for s in _visible(trace) if s[0] in tp and math.hypot(s[3] - s[1], s[4] - s[2]) > 0.2)
             add(c, "Pen up between shapes (no pen-down teleport)", bad == 0, f"{bad} pen-down jump(s)" if bad else "")
+        elif name == "bbox":
+            want, tol = task["limits"]["bbox"], task["limits"]["bboxTol"]
+            got = _bbox(_visible(trace))
+            if got is None:
+                add(c, "Dimensions & centre", False, "no ink")
+            else:
+                W, H = want["maxX"] - want["minX"], want["maxY"] - want["minY"]
+                w, h = got[1] - got[0], got[3] - got[2]
+                e = max(abs(w - W), abs(h - H), abs((got[0] + got[1]) / 2 - (want["minX"] + want["maxX"]) / 2),
+                        abs((got[2] + got[3]) / 2 - (want["minY"] + want["maxY"]) / 2))
+                add(c, f"Dimensions {W:.3f} × {H:.3f}, centred (±{tol})", e <= tol, f"drawn {w:.3f} × {h:.3f}, error {e:.3f}")
+        elif name == "max_speed":
+            vmax = float(arg)
+            peak = _peak_speed(poses)
+            add(c, f"Linear speed ≤ {vmax:g} units/s", peak <= vmax + 0.005, f"peak {peak:.2f} units/s")
+        elif name == "no_wall_hits":
+            n = trace.get("wall_hits", 0)
+            add(c, "No wall contact", n == 0, f"{n} wall hit(s)" if n else "")
+        elif name == "within_time":
+            t = trace["ticks"] * 0.01
+            add(c, f"Completed within {arg} s", finished and t <= float(arg) + 1e-9,
+                f"{t:.2f} s" + ("" if finished else f" ({trace.get('error') or trace['status']})"))
+        elif name == "code_size":
+            add(c, f"Source ≤ {int(arg):,} characters", len(code) <= int(arg), f"{len(code):,} characters")
         else:
             add(c, c, False, "unknown check")
-    return {"passed": all(x["ok"] for x in checks), "score": score, "checks": checks}
+    out = {"passed": all(x["ok"] for x in checks), "score": score, "checks": checks}
+    if task.get("rubric") == "extreme":
+        out["rubric"] = rubric(task, trace, code, checks)
+    return out
+
+
+def rubric(task: dict, trace: dict, code: str, checks: list) -> dict:
+    """100-point rubric (95 automatic + 5 judged by a human: code organisation)."""
+    ok = {c["id"].split(":")[0]: c["ok"] for c in checks}
+    res = _score(task, trace)
+    finished = trace.get("status") == "finished"
+    want = task["limits"]["bbox"]
+    got = _bbox(_visible(trace))
+    if got:
+        W, H = want["maxX"] - want["minX"], want["maxY"] - want["minY"]
+        e = max(abs((got[1] - got[0]) - W), abs((got[3] - got[2]) - H),
+                abs((got[0] + got[1]) / 2 - (want["minX"] + want["maxX"]) / 2), abs((got[2] + got[3]) / 2 - (want["minY"] + want["maxY"]) / 2))
+        dims = 20 * max(0.0, 1 - e / 0.5)
+    else:
+        dims = 0.0
+    items = [
+        {"label": "Geometric similarity", "max": 35, "points": round(35 * res["score"] / 100, 2)},
+        {"label": "Dimensions & proportions", "max": 20, "points": round(dims, 2)},
+        {"label": "Path continuity & completeness", "max": 15, "points": round(10 * res["recall"] + 5 * (_strokes(_visible(trace)) == 1), 2)},
+        {"label": "Movement precision", "max": 15, "points": round(5 * ok.get("max_speed", False) + 5 * ok.get("no_wall_hits", False) + 5 * res["precision"], 2)},
+        {"label": "Completion & stopping", "max": 10, "points": round(5 * (res["recall"] >= 0.99) + 5 * (finished and ok.get("within_time", False)), 2)},
+        {"label": "Code organisation & reliability (judge)", "max": 5, "points": None},
+    ]
+    auto = round(sum(i["points"] for i in items if i["points"] is not None), 2)
+    return {"auto": auto, "autoMax": 95, "max": 100, "items": items}

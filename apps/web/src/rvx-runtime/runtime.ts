@@ -164,7 +164,7 @@ export class RvxRuntime {
       task: task
         ? {
             start: task.start, target: task.target, goal: task.goal, maxSimSec: task.maxSimSec,
-            tolerance: task.tolerance, passThreshold: task.passThreshold, rules: task.rules,
+            tolerance: task.tolerance, passThreshold: task.passThreshold, rules: task.rules, checkColor: !!task.checkColor,
           }
         : {},
     });

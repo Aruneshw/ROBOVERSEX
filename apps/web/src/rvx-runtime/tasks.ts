@@ -11,16 +11,18 @@ import type { Segment } from "@/sim/engine";
 import type { WorkerRunResult } from "./python-runtime";
 import type { ProgramData } from "./sim-controller";
 import data from "./tasks.data.json";
+import extreme from "./tasks.extreme.json";
 
 export type TaskCheck =
   | "goal_reached" | "stopped" | "goal_log" | "closed_loop" | "no_teleport"
   | "guards_spawned" | "guard_clearance" | "shape_match" | "one_stroke" | "pen_up_teleport"
-  | `distinct_colours:${number}`;
+  | `distinct_colours:${number}`
+  | "bbox" | "no_wall_hits" | `max_speed:${number}` | `within_time:${number}` | `code_size:${number}`;
 
 export type ArenaTask = {
   id: string;
-  ps: 1 | 2;
-  task: 1 | 2 | 3 | 4;
+  ps: 1 | 2 | 3;
+  task: 1 | 2 | 3 | 4 | 5;
   card: 1 | 2 | 3 | 4 | null;
   title: string;
   summary: string;
@@ -35,13 +37,25 @@ export type ArenaTask = {
   maxSimSec: number;
   checks: TaskCheck[];
   starterCode: string;
+  /** Task 5: pen colour is part of the shape match */
+  checkColor?: boolean;
+  /** Task 5: speed cap, source size cap and the exact target bounding box */
+  limits?: { maxSpeed: number; maxCodeChars: number; bbox: { minX: number; maxX: number; minY: number; maxY: number }; bboxTol: number };
+  /** Task 5: 100-point rubric */
+  rubric?: "extreme";
 };
+
+export type RubricItem = { label: string; max: number; points: number | null };
+/** 95 points are automatic; "Code organisation & reliability" (5) is scored by a judge (points: null). */
+export type Rubric = { auto: number; autoMax: number; max: number; items: RubricItem[] };
 
 export type CheckResult = { id: string; label: string; ok: boolean; detail: string };
 /** `code` is the exact program that produced this evaluation (submit only if the editor still holds it). */
-export type TaskEvaluation = { taskId: string; passed: boolean; score: number | null; checks: CheckResult[]; at: number; code: string };
+export type TaskEvaluation = {
+  taskId: string; passed: boolean; score: number | null; checks: CheckResult[]; at: number; code: string; rubric?: Rubric;
+};
 
-export const TASKS = data as unknown as ArenaTask[];
+export const TASKS = [...(data as unknown as ArenaTask[]), ...(extreme as unknown as ArenaTask[])];
 export const getTask = (id: string): ArenaTask => {
   const t = TASKS.find((x) => x.id === id);
   if (!t) throw new Error(`unknown task ${id}`);
@@ -49,24 +63,59 @@ export const getTask = (id: string): ArenaTask => {
 };
 /** The four Task-4 cards, in card order. */
 export const TASK4_CARDS = TASKS.filter((t) => t.task === 4).sort((a, b) => (a.card ?? 0) - (b.card ?? 0));
+/** The three Task-5 Extreme Geometry cards: A dragon, B Sierpinski, C torus knot. */
+export const TASK5_CARDS = TASKS.filter((t) => t.task === 5).sort((a, b) => (a.card ?? 0) - (b.card ?? 0));
+
+const hash = (s: string) => {
+  let h = 2166136261;
+  for (const ch of s.trim().toLowerCase()) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return h >>> 0;
+};
 
 /**
  * Task 4 "you draw the card you are handed": a stable card per participant
  * (same participant id → same card; ids spread evenly over the 4 cards).
  * Organisers can override by passing an explicit card number instead.
  */
-export function assignCard(participantId: string): ArenaTask {
-  let h = 2166136261;
-  for (const ch of participantId.trim().toLowerCase()) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-  return TASK4_CARDS[(h >>> 0) % TASK4_CARDS.length];
+export function assignCard(participantId: string, task: 4 | 5 = 4): ArenaTask {
+  const cards = task === 4 ? TASK4_CARDS : TASK5_CARDS;
+  return cards[hash(task === 4 ? participantId : `extreme:${participantId}`) % cards.length];
 }
 
-/** Tasks in portal order: PS1 (Task 1 → Task 2), PS2 (Task 3, assigned Task 4 card). */
-export function tasksFor(participantId: string): ArenaTask[] {
-  return [getTask("ps1-t1-reach-goal"), getTask("ps1-t2-dodge-guards"), getTask("ps2-t3-basic-shapes"), assignCard(participantId)];
+/** Tasks in portal order: PS1 (Task 1 → 2), PS2 (Task 3, assigned Task-4 card), PS3 (assigned Task-5 extreme card). */
+export function tasksFor(participantId: string, opts: { extreme?: boolean } = {}): ArenaTask[] {
+  const base = [getTask("ps1-t1-reach-goal"), getTask("ps1-t2-dodge-guards"), getTask("ps2-t3-basic-shapes"), assignCard(participantId, 4)];
+  return opts.extreme === false ? base : [...base, assignCard(participantId, 5)];
 }
 
 const segLen = (s: Segment) => Math.hypot(s[3] - s[1], s[4] - s[2]);
+const inkBox = (segs: Segment[]) => {
+  if (!segs.length) return null;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const s of segs) {
+    minX = Math.min(minX, s[1], s[3]); maxX = Math.max(maxX, s[1], s[3]);
+    minY = Math.min(minY, s[2], s[4]); maxY = Math.max(maxY, s[2], s[4]);
+  }
+  return { minX, maxX, minY, maxY };
+};
+/** worst of |Δwidth|, |Δheight|, |Δcentre x|, |Δcentre y| between drawn ink and the target box */
+const boxError = (got: NonNullable<ReturnType<typeof inkBox>>, want: NonNullable<ArenaTask["limits"]>["bbox"]) =>
+  Math.max(
+    Math.abs(got.maxX - got.minX - (want.maxX - want.minX)), Math.abs(got.maxY - got.minY - (want.maxY - want.minY)),
+    Math.abs((got.minX + got.maxX) / 2 - (want.minX + want.maxX) / 2), Math.abs((got.minY + got.maxY) / 2 - (want.minY + want.maxY) / 2),
+  );
+const strokeCount = (segs: Segment[]) => {
+  let n = 0;
+  segs.forEach((s, i) => {
+    if (i === 0 || Math.abs(segs[i - 1][3] - s[1]) > 1e-4 || Math.abs(segs[i - 1][4] - s[2]) > 1e-4) n++;
+  });
+  return n;
+};
+const peakSpeed = (poses: number[]) => {
+  let best = 0;
+  for (let i = 3; i + 1 < poses.length; i += 3) best = Math.max(best, Math.hypot(poses[i] - poses[i - 3], poses[i + 1] - poses[i - 2]) / 0.01);
+  return best;
+};
 
 /** Mirror of packages/rvx-sim/tools/level2_eval.py — keep both in sync. */
 export function evaluateTask(task: ArenaTask, run: ProgramData, result: WorkerRunResult | null, code: string): TaskEvaluation {
@@ -128,14 +177,39 @@ export function evaluateTask(task: ArenaTask, run: ProgramData, result: WorkerRu
         break;
       }
       case "one_stroke": {
-        const segs = run.visibleSegments;
-        let strokes = 0;
-        segs.forEach((s, i) => {
-          if (i === 0 || Math.abs(segs[i - 1][3] - s[1]) > 1e-4 || Math.abs(segs[i - 1][4] - s[2]) > 1e-4) strokes++;
-        });
+        const strokes = strokeCount(run.visibleSegments);
         add(c, "One continuous stroke", strokes === 1, `${strokes} stroke(s)`);
         break;
       }
+      case "bbox": {
+        const want = task.limits!.bbox, tol = task.limits!.bboxTol;
+        const got = inkBox(run.visibleSegments);
+        const label = `Dimensions ${(want.maxX - want.minX).toFixed(3)} × ${(want.maxY - want.minY).toFixed(3)}, centred (±${tol})`;
+        if (!got) add(c, label, false, "no ink");
+        else {
+          const e = boxError(got, want);
+          add(c, label, e <= tol, `drawn ${(got.maxX - got.minX).toFixed(3)} × ${(got.maxY - got.minY).toFixed(3)}, error ${e.toFixed(3)}`);
+        }
+        break;
+      }
+      case "max_speed": {
+        const vmax = Number(arg), peak = peakSpeed(run.poses);
+        add(c, `Linear speed ≤ ${vmax} units/s`, peak <= vmax + 0.005, `peak ${peak.toFixed(2)} units/s`);
+        break;
+      }
+      case "no_wall_hits": {
+        const n = result?.wall_hits ?? 0;
+        add(c, "No wall contact", !!result && n === 0, n ? `${n} wall hit(s)` : "");
+        break;
+      }
+      case "within_time": {
+        const t = (result?.ticks ?? run.ticks) * 0.01;
+        add(c, `Completed within ${arg} s`, finished && t <= Number(arg) + 1e-9, `${t.toFixed(2)} s${finished ? "" : ` (${result?.error ?? result?.status ?? "not finished"})`}`);
+        break;
+      }
+      case "code_size":
+        add(c, `Source ≤ ${Number(arg).toLocaleString("en-US")} characters`, code.length <= Number(arg), `${code.length.toLocaleString("en-US")} characters`);
+        break;
       case "pen_up_teleport": {
         const ticks = new Set(teleports.map((e) => e.tick));
         const bad = run.visibleSegments.filter((s) => ticks.has(s[0]) && segLen(s) > 0.2).length;
@@ -146,7 +220,28 @@ export function evaluateTask(task: ArenaTask, run: ProgramData, result: WorkerRu
         add(c, c, false, "unknown check");
     }
   }
-  return { taskId: task.id, passed: checks.every((x) => x.ok), score, checks, at: Date.now(), code };
+  const evaluation: TaskEvaluation = { taskId: task.id, passed: checks.every((x) => x.ok), score, checks, at: Date.now(), code };
+  if (task.rubric === "extreme") evaluation.rubric = rubricFor(task, run, result, checks);
+  return evaluation;
+}
+
+/** Mirror of level2_eval.rubric(): 100 points, 95 automatic + 5 judged. */
+export function rubricFor(task: ArenaTask, run: ProgramData, result: WorkerRunResult | null, checks: CheckResult[]): Rubric {
+  const ok = (id: string) => checks.some((c) => c.id.split(":")[0] === id && c.ok);
+  const res = result?.preview ?? { score: 0, recall: 0, precision: 0 };
+  const finished = result?.status === "finished";
+  const got = inkBox(run.visibleSegments);
+  const dims = got && task.limits ? 20 * Math.max(0, 1 - boxError(got, task.limits.bbox) / 0.5) : 0;
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  const items: RubricItem[] = [
+    { label: "Geometric similarity", max: 35, points: r2((35 * res.score) / 100) },
+    { label: "Dimensions & proportions", max: 20, points: r2(dims) },
+    { label: "Path continuity & completeness", max: 15, points: r2(10 * res.recall + (strokeCount(run.visibleSegments) === 1 ? 5 : 0)) },
+    { label: "Movement precision", max: 15, points: r2((ok("max_speed") ? 5 : 0) + (ok("no_wall_hits") ? 5 : 0) + 5 * res.precision) },
+    { label: "Completion & stopping", max: 10, points: r2((res.recall >= 0.99 ? 5 : 0) + (finished && ok("within_time") ? 5 : 0)) },
+    { label: "Code organisation & reliability (judge)", max: 5, points: null },
+  ];
+  return { auto: r2(items.reduce((a, i) => a + (i.points ?? 0), 0)), autoMax: 95, max: 100, items };
 }
 
 /** The task's checks with proper labels, all "waiting" — for the AUTO EVALUATION bar before the first run. */

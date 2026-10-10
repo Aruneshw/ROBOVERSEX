@@ -26,6 +26,8 @@ export type TaskFlowOptions = {
   code: string;
   /** replace editor contents (called when a task becomes current: saved draft or starter code) */
   setCode: (code: string) => void;
+  /** organiser preview: every task selectable (default false = sequential unlock) */
+  unlockAll?: boolean;
   /** optional: send the passing run to your backend; throw to keep the task open */
   onSubmit?: (task: ArenaTask, evaluation: TaskEvaluation) => Promise<void> | void;
 };
@@ -73,7 +75,7 @@ export function useTaskFlow(o: TaskFlowOptions) {
     opts.current.setCode(read<string | null>(`rvx.draft.${opts.current.participantId}.${task.id}`, null) ?? task.starterCode);
   }, [currentId, tasks]);
 
-  const unlocked = (i: number) => tasks.slice(0, i).every((t) => progress[t.id]);
+  const unlocked = (i: number) => !!o.unlockAll || tasks.slice(0, i).every((t) => progress[t.id]);
   const list: FlowTask[] = tasks.map((task, index) => ({
     task, index,
     state: progress[task.id] ? "passed" : task.id === currentId ? "current" : unlocked(index) ? "available" : "locked",

@@ -112,20 +112,28 @@ def _step(self):
 _eng.TurtleWorld.__init__ = _init
 _eng.TurtleWorld.step = _step
 
-def _rvx_run(code, task_json, chunk):
-    task = json.loads(task_json)
+def _rvx_run(code, run_task_json, chunk):
+    # run_task has NO target strokes: participant code can inspect its call stack, so the
+    # target only enters Python afterwards, in _rvx_score().
+    run_task = json.loads(run_task_json)
     _S.update(arm=True, w=None, chunk=max(1, int(chunk)))
-    trace = _runner.run_program(code, task)
+    trace = _runner.run_program(code, run_task)
+    run_task = None
     w = _S["w"]
     if w is not None:
         _rvx_flush(w, final=True)
     _S["w"] = None
-    out = {"status": trace["status"], "error": trace["error"], "ticks": trace["ticks"],
-           "wall_hits": trace["wall_hits"],
-           "teleported": any(e["type"] == "teleport" for e in trace["events"]), "preview": None}
-    if ((task.get("target") or {}).get("strokes")):
-        out["preview"] = _score(trace, task)
-    return json.dumps(out)
+    _S["trace"] = trace
+    return json.dumps({"status": trace["status"], "error": trace["error"], "ticks": trace["ticks"],
+                       "wall_hits": trace["wall_hits"],
+                       "teleported": any(e["type"] == "teleport" for e in trace["events"]), "preview": None})
+
+def _rvx_score(task_json):
+    task = json.loads(task_json)
+    trace = _S.pop("trace", None)
+    if trace is None or not ((task.get("target") or {}).get("strokes")):
+        return "null"
+    return json.dumps(_score(trace, task))
 
 import code as _code
 _repl = _code.InteractiveConsole({"__name__": "__console__"})
@@ -302,8 +310,11 @@ self.onmessage = async (ev) => {
         errorCallback: (s) => post({ type: "pip-log", id: m.id, text: `\x1b[33mWARNING: ${s}\x1b[0m` }),
       }).catch(() => {});
       post({ type: "run-start", id: m.id });
-      const json = py.globals.get("_rvx_run")(m.code, JSON.stringify(m.task), m.chunkTicks ?? 10);
-      post({ type: "result", id: m.id, result: JSON.parse(json) });
+      const target = m.task?.target ?? null;
+      const runTask = { ...m.task, target: target ? { ...target, strokes: [] } : null };
+      const result = JSON.parse(py.globals.get("_rvx_run")(m.code, JSON.stringify(runTask), m.chunkTicks ?? 10));
+      result.preview = JSON.parse(py.globals.get("_rvx_score")(JSON.stringify(m.task)));
+      post({ type: "result", id: m.id, result });
     } else if (m.type === "pip") {
       const ok = await pip(m.id, m.args);
       post({ type: "done", id: m.id, ok });
