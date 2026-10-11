@@ -1,12 +1,13 @@
 "use client";
 
-import { Bell, Calendar, Home, Target, Trophy, BookOpen } from "lucide-react";
+import { Bell, Calendar, Home, Target, Trophy, BookOpen, LogIn } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export function TopNav() {
   const pathname = usePathname();
+  const router = useRouter();
 
   return (
     <div className="w-full bg-[#0d1425] border-b border-[#1e293b] flex items-center justify-between px-6 py-3">
@@ -47,6 +48,11 @@ export function TopNav() {
         <button className="relative p-2 text-slate-400 hover:text-white transition-colors">
           <Bell className="w-5 h-5" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full border border-[#0d1425]"></span>
+        </button>
+
+        <button onClick={() => router.push("/auth/login")} className="flex items-center gap-2 rounded-md border border-blue-500/50 px-3 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-500/10" aria-label="Sign in with Google">
+          <LogIn className="h-4 w-4" />
+          Sign in
         </button>
 
         <div className="flex items-center gap-3 border-l border-slate-700 pl-6">
